@@ -171,8 +171,6 @@ function CommandPaletteInput({
       placeholder={placeholder}
       value={query}
       spellCheck={false}
-      autoCorrect="off"
-      autoCapitalize="off"
       autoComplete="off"
       onChange={(event) => onChange(event.target.value)}
     />
