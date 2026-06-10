@@ -196,9 +196,38 @@ describe('NoteSearchList', () => {
     expect(onItemHover).not.toHaveBeenCalled()
   })
 
+  it('does not call onItemHover for stationary mousemove', () => {
+    renderList({ itemHover: onItemHover })
+    fireEvent.mouseMove(screen.getByText('Gamma Experiment'), {
+      clientX: 40,
+      clientY: 80,
+      screenX: 140,
+      screenY: 180,
+      movementX: 0,
+      movementY: 0,
+    })
+    expect(onItemHover).not.toHaveBeenCalled()
+  })
+
   it('calls onItemHover when the mouse actually moves over an item', () => {
     renderList({ itemHover: onItemHover })
-    fireEvent.mouseMove(screen.getByText('Gamma Experiment'))
+    fireEvent.mouseMove(screen.getByText('Gamma Experiment'), {
+      clientX: 40,
+      clientY: 80,
+      screenX: 140,
+      screenY: 180,
+      movementX: 0,
+      movementY: 0,
+    })
+    fireEvent.mouseMove(screen.getByText('Gamma Experiment'), {
+      clientX: 42,
+      clientY: 80,
+      screenX: 142,
+      screenY: 180,
+      movementX: 0,
+      movementY: 0,
+    })
+    expect(onItemHover).toHaveBeenCalledTimes(1)
     expect(onItemHover).toHaveBeenCalledWith(2)
   })
 

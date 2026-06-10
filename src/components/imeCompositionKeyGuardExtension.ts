@@ -1,12 +1,5 @@
 import { createExtension } from '@blocknote/core'
-
-interface ComposingEditorView {
-  composing?: boolean
-}
-
-function isComposingKeyEvent(event: KeyboardEvent, view?: ComposingEditorView | null): boolean {
-  return event.isComposing || event.keyCode === 229 || Boolean(view?.composing)
-}
+import { isKeyboardEventComposing, type ComposingEditorView } from '../utils/imeEvents'
 
 function isEnterKey(event: KeyboardEvent): boolean {
   return event.key === 'Enter'
@@ -19,7 +12,7 @@ export function shouldStopComposingEnterKey(
   event: KeyboardEvent,
   view?: ComposingEditorView | null,
 ): boolean {
-  return isEnterKey(event) && isComposingKeyEvent(event, view)
+  return isEnterKey(event) && isKeyboardEventComposing(event, view)
 }
 
 export const createImeCompositionKeyGuardExtension = createExtension(({ editor }) => {

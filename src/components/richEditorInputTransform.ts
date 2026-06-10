@@ -5,6 +5,7 @@ import {
   reportRecoveredEditorTransformError,
   richEditorTransformRecoveryErrorReason,
 } from './richEditorTransformErrorRecoveryExtension'
+import { isBeforeInputEventComposing } from '../utils/imeEvents'
 
 export type RichEditorInputView = NonNullable<ReturnType<typeof useCreateBlockNote>['prosemirrorView']>
 export type RichEditorInputTransaction = Parameters<RichEditorInputView['dispatch']>[0]
@@ -52,10 +53,6 @@ function isLiveEditorView(view: RichEditorInputView): boolean {
   if (view.dom?.isConnected === false) return false
 
   return true
-}
-
-function isComposingInput(event: InputEvent, view: RichEditorInputView): boolean {
-  return event.isComposing || Boolean(view.composing)
 }
 
 export function recoverRichEditorInputTransformError(error: unknown): boolean {
@@ -146,7 +143,7 @@ function handleRichEditorBeforeInput(
 ): void {
   const view = readReadyInputView({ readView, transforms })
   if (!view) return
-  if (isComposingInput(event, view)) return
+  if (isBeforeInputEventComposing(event, view)) return
 
   runInputTransforms(event, view, transforms)
 }

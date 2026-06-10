@@ -1,4 +1,5 @@
 import { trackEvent } from '../lib/telemetry'
+import { isKeyboardEventComposing } from '../utils/imeEvents'
 import {
   APP_COMMAND_IDS,
   executeAppCommand,
@@ -100,6 +101,8 @@ function isEditorFindScopeFocused(): boolean {
 }
 
 export function handleAppKeyboardEvent(actions: KeyboardActions, event: KeyboardEvent) {
+  if (isKeyboardEventComposing(event)) return
+
   const commandId = findShortcutCommandIdForEvent(event)
   if (commandId === null) return
   if (commandId === APP_COMMAND_IDS.editFindInNote && !isEditorFindScopeFocused()) return

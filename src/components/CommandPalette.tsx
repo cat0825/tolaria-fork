@@ -1,7 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { cn } from '@/lib/utils'
 import type { VaultEntry } from '../types'
 import { fuzzyMatch } from '../utils/fuzzyMatch'
+import {
+  detectIntentionalMouseMovement,
+  type MouseMovementSnapshot,
+} from '../utils/mouseMovement'
 import { queueAiPrompt, requestOpenAiChat } from '../utils/aiPromptBridge'
 import type { NoteReference } from '../utils/ai-context'
 import type { CommandAction, CommandGroup } from '../hooks/useCommandRegistry'
@@ -192,7 +196,7 @@ function CommandPaletteResults({
   listRef: React.RefObject<HTMLDivElement | null>
   emptyText: string
   locale: AppLocale
-  onHover: (index: number) => void
+  onHover: (index: number, event: ReactMouseEvent<HTMLButtonElement>) => void
   onSelect: (command: CommandAction) => void
 }) {
   const flatList = groups.flatMap((group) => group.items)
@@ -234,7 +238,7 @@ function CommandPaletteResults({
                   key={command.id}
                   command={command}
                   selected={globalIndex === selectedIndex}
-                  onHover={() => onHover(globalIndex)}
+                  onHover={(event) => onHover(globalIndex, event)}
                   onSelect={() => onSelect(command)}
                 />
               )
@@ -292,6 +296,7 @@ function OpenCommandPalette({
   const aiInputRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const mouseMovementRef = useRef<MouseMovementSnapshot | null>(null)
   const aiMode = aiModeEnabled && aiValue.startsWith(' ')
   const resolvedAiAgentReady = aiAgentReady ?? claudeCodeReady
   const { groups, flatList } = usePaletteResults(commands, query)
@@ -400,6 +405,15 @@ function OpenCommandPalette({
     command.execute()
   }
 
+  const handleCommandHover = (
+    index: number,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
+    const decision = detectIntentionalMouseMovement(event.nativeEvent, mouseMovementRef.current)
+    mouseMovementRef.current = decision.snapshot
+    if (decision.moved) setSelectedIndex(index)
+  }
+
   const handleSubmitAiPrompt = (text: string, references: NoteReference[]) => {
     if (!text.trim()) {
       onClose()
@@ -456,7 +470,7 @@ function OpenCommandPalette({
               listRef={listRef}
               emptyText={t('command.noMatches')}
               locale={locale}
-              onHover={setSelectedIndex}
+              onHover={handleCommandHover}
               onSelect={handleSelectCommand}
             />
             <CommandPaletteFooter aiMode={false} aiAgentLabel={aiAgentLabel} footerText={footerText} />
@@ -470,7 +484,7 @@ function OpenCommandPalette({
 interface CommandRowProps {
   command: CommandAction
   selected: boolean
-  onHover: () => void
+  onHover: (event: ReactMouseEvent<HTMLButtonElement>) => void
   onSelect: () => void
 }
 

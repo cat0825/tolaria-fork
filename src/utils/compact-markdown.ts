@@ -5,6 +5,7 @@
  * - Bullet list markers normalized to `-` (BlockNote outputs `*`)
  * - HTML entities like `&#x20;` decoded back to spaces
  * - Leading/trailing inline whitespace moved outside bold markers
+ * - BlockNote soft-break artifacts (single trailing backslash) stripped
  * - Stray hard-break-only lines removed after a markdown hard break
  * - No runs of 3+ blank lines (collapsed to one blank line)
  * - No trailing blank lines
@@ -30,6 +31,7 @@ export function compactMarkdown(md: string): string {
 
 const LIST_RE = /^(\s*)([-*+]|\d+\.)\s/
 const HARD_BREAK_ONLY_RE = /^\\+$/
+const INDENTED_CODE_RE = /^(?: {4}|\t)/
 const TRAILING_INLINE_CLOSERS_RE = /(?:[*_~`]+)$/
 const STRONG_RE = /\*\*([^*\n]*?)\*\*/g
 
@@ -83,7 +85,21 @@ function isFenceDelimiter({ line }: MarkdownLineValue): boolean {
 function normalizeMarkdownLine({ line }: MarkdownLineValue): string {
   const normalizedBullets = normalizeBulletMarker({ line })
   const decodedEntities = decodeHtmlEntities({ line: normalizedBullets })
-  return normalizeStrongWhitespace({ line: decodedEntities })
+  const withoutSoftBreakArtifact = stripSoftBreakArtifact({ line: decodedEntities })
+  return normalizeStrongWhitespace({ line: withoutSoftBreakArtifact })
+}
+
+function stripSoftBreakArtifact({ line }: MarkdownLineValue): string {
+  if (INDENTED_CODE_RE.test(line) && !LIST_RE.test(line)) return line
+
+  const trimmedEnd = line.trimEnd()
+  if (!trimmedEnd.endsWith('\\')) return line
+
+  const previousChar = trimmedEnd.length > 1 ? trimmedEnd[trimmedEnd.length - 2] : ''
+  if (previousChar === '\\') return line
+
+  const trailingWhitespace = line.slice(trimmedEnd.length)
+  return `${trimmedEnd.slice(0, -1)}${trailingWhitespace}`
 }
 
 function shouldSkipLine({ doc, idx, line }: NormalizedLinePosition): boolean {

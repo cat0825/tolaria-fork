@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { APP_COMMAND_IDS, getAppCommandShortcutDisplay } from '../hooks/appCommandCatalog'
 import { makeEntry, mockEntries, renderNoteList } from '../test-utils/noteListTestUtils'
 
+function setViewport(width: number, height: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
+}
+
 describe('NoteList context menu', () => {
   it('opens note actions from a right-clicked note item', () => {
     const onOpenInNewWindow = vi.fn()
@@ -99,6 +104,23 @@ describe('NoteList context menu', () => {
 
     expect(screen.getByText('Remove from Favorites')).toBeInTheDocument()
     expect(screen.getByText('Mark as Unorganized')).toBeInTheDocument()
+  })
+
+  it('positions the note context menu inside the viewport and allows oversized menus to scroll', () => {
+    setViewport(800, 600)
+    renderNoteList({ onOpenInNewWindow: vi.fn() })
+
+    fireEvent.contextMenu(screen.getByText('Build Laputa App'), {
+      clientX: 790,
+      clientY: 40,
+    })
+
+    const menu = screen.getByTestId('note-list-context-menu')
+    expect(menu).toHaveStyle({
+      left: '552px',
+      maxHeight: 'calc(100vh - 16px)',
+      overflowY: 'auto',
+    })
   })
 
   it('hides the git URL action for notes without a remote', () => {

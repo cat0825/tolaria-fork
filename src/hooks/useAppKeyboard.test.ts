@@ -7,9 +7,19 @@ import {
   resetAppCommandDispatchStateForTests,
 } from './appCommandDispatcher'
 
+type KeyMods = {
+  altKey?: boolean
+  metaKey?: boolean
+  ctrlKey?: boolean
+  shiftKey?: boolean
+  code?: string
+  isComposing?: boolean
+  keyCode?: number
+}
+
 function fireKey(
   key: string,
-  mods: { altKey?: boolean; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; code?: string } = {},
+  mods: KeyMods = {},
 ) {
   return fireKeyOnTarget(window, key, mods)
 }
@@ -17,7 +27,7 @@ function fireKey(
 function fireKeyOnTarget(
   target: EventTarget,
   key: string,
-  mods: { altKey?: boolean; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; code?: string } = {},
+  mods: KeyMods = {},
 ) {
   const event = new KeyboardEvent('keydown', {
     key,
@@ -26,9 +36,16 @@ function fireKeyOnTarget(
     metaKey: mods.metaKey ?? false,
     ctrlKey: mods.ctrlKey ?? false,
     shiftKey: mods.shiftKey ?? false,
+    isComposing: mods.isComposing ?? false,
     bubbles: true,
     cancelable: true,
   })
+  if (mods.keyCode !== undefined) {
+    Object.defineProperty(event, 'keyCode', {
+      configurable: true,
+      value: mods.keyCode,
+    })
+  }
   target.dispatchEvent(event)
   return event
 }
@@ -130,6 +147,26 @@ describe('useAppKeyboard', () => {
     renderHook(() => useAppKeyboard(actions))
     fireKey('n', { metaKey: true })
     expect(actions.onCreateNote).toHaveBeenCalled()
+  })
+
+  it('does not trigger app shortcuts while the keydown is composing', () => {
+    const actions = makeActions()
+    renderHook(() => useAppKeyboard(actions))
+
+    const event = fireKey('n', { metaKey: true, isComposing: true })
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(actions.onCreateNote).not.toHaveBeenCalled()
+  })
+
+  it('does not trigger app shortcuts for legacy IME keyCode 229 events', () => {
+    const actions = makeActions()
+    renderHook(() => useAppKeyboard(actions))
+
+    const event = fireKey('n', { metaKey: true, keyCode: 229 })
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(actions.onCreateNote).not.toHaveBeenCalled()
   })
 
   it('Cmd+\\ still works in Tauri mode', () => {

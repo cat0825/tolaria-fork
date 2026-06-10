@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { translate, type AppLocale } from '../../lib/i18n'
 import type { ChangeActionTarget, ChangesContextMenuState } from './NoteListChangesMenu'
+import { useViewportContextMenuStyle } from './contextMenuPosition'
 
 function changeActionLabel(locale: AppLocale, action: ChangeActionTarget['action']): string {
   return translate(locale, action === 'restore' ? 'noteList.changes.restoreNote' : 'noteList.changes.discardChanges')
@@ -42,13 +43,15 @@ export function ChangesContextMenuNode({
   locale: AppLocale
   onSelect: () => void
 }) {
+  const menuStyle = useViewportContextMenuStyle(ctxMenuRef, ctxMenu, 180)
+
   if (!ctxMenu) return null
 
   return (
     <div
       ref={ctxMenuRef}
       className="fixed z-[12000] rounded-md border bg-popover p-1 shadow-md"
-      style={{ left: ctxMenu.x, top: ctxMenu.y, minWidth: 180 }}
+      style={menuStyle}
       data-testid="changes-context-menu"
     >
       <Button

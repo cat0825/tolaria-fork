@@ -144,4 +144,26 @@ describe('compactMarkdown', () => {
     const input = '```\n&#x20; should stay\n```\n'
     expect(compactMarkdown(input)).toBe('```\n&#x20; should stay\n```\n')
   })
+
+  it('strips a single trailing backslash soft-break artifact from prose', () => {
+    const input = 'First line\\\nSecond line\n'
+    expect(compactMarkdown(input)).toBe('First line\nSecond line\n')
+  })
+
+  it('preserves an authored double backslash hard break', () => {
+    const input = 'First line\\\\\nSecond line\n'
+    expect(compactMarkdown(input)).toBe('First line\\\\\nSecond line\n')
+  })
+
+  it('does not strip trailing backslashes inside fenced or indented code blocks', () => {
+    const input = '```\ncode\\\n```\n\n    indented\\\n'
+    expect(compactMarkdown(input)).toBe('```\ncode\\\n```\n\n    indented\\\n')
+  })
+
+  it('is idempotent for mixed prose and lists with soft-break artifacts', () => {
+    const input = 'Intro\\\n\n* One\\\n\n* Two\\\\\n'
+    const compacted = compactMarkdown(input)
+    expect(compacted).toBe('Intro\n\n- One\n- Two\\\\\n')
+    expect(compactMarkdown(compacted)).toBe(compacted)
+  })
 })

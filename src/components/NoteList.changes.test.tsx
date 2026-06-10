@@ -6,6 +6,11 @@ import { allSelection, mockEntries, renderNoteList } from '../test-utils/noteLis
 
 const changesSelection: SidebarSelection = { kind: 'filter', filter: 'changes' }
 
+function setViewport(width: number, height: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
+}
+
 function changeFile(
   entry: VaultEntry,
   status: ModifiedFile['status'],
@@ -199,6 +204,24 @@ describe('NoteList changes view', () => {
 
     expect(screen.getByTestId('changes-context-menu')).toBeInTheDocument()
     expect(screen.getByTestId('restore-note-button')).toBeInTheDocument()
+  })
+
+  it('positions the changes context menu inside the viewport and allows oversized menus to scroll', () => {
+    setViewport(800, 600)
+    renderNoteList({ selection: changesSelection, modifiedFiles, onDiscardFile: vi.fn() })
+    const noteItem = screen.getByText('Build Laputa App').closest('[class*="border-b"]')!
+
+    fireEvent.contextMenu(noteItem, {
+      clientX: 790,
+      clientY: 40,
+    })
+
+    const menu = screen.getByTestId('changes-context-menu')
+    expect(menu).toHaveStyle({
+      left: '612px',
+      maxHeight: 'calc(100vh - 16px)',
+      overflowY: 'auto',
+    })
   })
 
   it('does not show a context menu when discard is unavailable', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { MARKDOWN_HIGHLIGHT_STYLE } from '../utils/markdownHighlightMarkdown'
 import { createRichEditorMarkdownInputTransformExtension } from './richEditorInputTransformExtension'
+import { mountRichEditorInputTransforms } from './richEditorInputTransform'
 
 function createTransaction() {
   const transaction = {
@@ -114,6 +115,56 @@ function createFixture() {
   }
 }
 
+function createAlwaysDispatchFixture() {
+  let beforeInputListener: EventListener | null = null
+  const transaction = createTransaction()
+  const view = {
+    composing: false,
+    dispatch: vi.fn(),
+    dom: { isConnected: true },
+    state: { tr: transaction },
+  }
+  const transform = {
+    handleBeforeInput: vi.fn(() => ({
+      preventDefault: true,
+      transaction,
+    })),
+  }
+  const dom = {
+    addEventListener: vi.fn((type: string, listener: EventListener) => {
+      if (type === 'beforeinput') beforeInputListener = listener
+    }),
+  }
+
+  return {
+    fireBeforeInput(event: Partial<InputEvent>) {
+      if (!beforeInputListener) throw new Error('Input transform did not mount beforeinput')
+      const inputEvent = {
+        data: null,
+        inputType: 'insertText',
+        isComposing: false,
+        preventDefault: vi.fn(),
+        ...event,
+      }
+
+      beforeInputListener(inputEvent as InputEvent)
+      return inputEvent
+    },
+    mount() {
+      const controller = new AbortController()
+      mountRichEditorInputTransforms({
+        dom: dom as never,
+        readView: () => view as never,
+        signal: controller.signal,
+        transforms: [transform],
+      })
+      return controller
+    },
+    transform,
+    view,
+  }
+}
+
 describe('createRichEditorMarkdownInputTransformExtension', () => {
   it('mounts one beforeinput listener for all markdown input transforms', () => {
     const fixture = createFixture()
@@ -163,5 +214,39 @@ describe('createRichEditorMarkdownInputTransformExtension', () => {
     expect(fixture.transaction.addMark).toHaveBeenCalledWith(26, 32, fixture.highlightMark)
     expect(fixture.view.dispatch).toHaveBeenLastCalledWith(fixture.transaction)
     expect(highlightEvent.preventDefault).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips transforms for composition text insertion', () => {
+    const fixture = createAlwaysDispatchFixture()
+    fixture.mount()
+
+    const event = fixture.fireBeforeInput({ inputType: 'insertCompositionText', data: '你' })
+
+    expect(fixture.transform.handleBeforeInput).not.toHaveBeenCalled()
+    expect(fixture.view.dispatch).not.toHaveBeenCalled()
+    expect(event.preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('skips transforms for composition deletion', () => {
+    const fixture = createAlwaysDispatchFixture()
+    fixture.mount()
+
+    const event = fixture.fireBeforeInput({ inputType: 'deleteCompositionText' })
+
+    expect(fixture.transform.handleBeforeInput).not.toHaveBeenCalled()
+    expect(fixture.view.dispatch).not.toHaveBeenCalled()
+    expect(event.preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('skips transforms while the ProseMirror view is composing', () => {
+    const fixture = createAlwaysDispatchFixture()
+    fixture.view.composing = true
+    fixture.mount()
+
+    const event = fixture.fireBeforeInput({ inputType: 'insertText', data: 'a' })
+
+    expect(fixture.transform.handleBeforeInput).not.toHaveBeenCalled()
+    expect(fixture.view.dispatch).not.toHaveBeenCalled()
+    expect(event.preventDefault).not.toHaveBeenCalled()
   })
 })

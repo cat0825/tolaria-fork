@@ -290,10 +290,44 @@ describe('CommandPalette', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
+  it('keeps keyboard selection stable when a stationary mousemove lands on another row', () => {
+    render(<CommandPalette open={true} commands={commands} onClose={onClose} />)
+
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    fireEvent.mouseMove(screen.getByText('Commit & Push'), {
+      clientX: 40,
+      clientY: 80,
+      screenX: 140,
+      screenY: 180,
+      movementX: 0,
+      movementY: 0,
+    })
+    fireEvent.keyDown(window, { key: 'Enter' })
+
+    expect(commands[1].execute).toHaveBeenCalledOnce()
+    expect(commands[2].execute).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
   it('lets real mouse movement take over command selection', () => {
     render(<CommandPalette open={true} commands={commands} onClose={onClose} />)
 
-    fireEvent.mouseMove(screen.getByText('Commit & Push'))
+    fireEvent.mouseMove(screen.getByText('Commit & Push'), {
+      clientX: 40,
+      clientY: 80,
+      screenX: 140,
+      screenY: 180,
+      movementX: 0,
+      movementY: 0,
+    })
+    fireEvent.mouseMove(screen.getByText('Commit & Push'), {
+      clientX: 42,
+      clientY: 80,
+      screenX: 142,
+      screenY: 180,
+      movementX: 0,
+      movementY: 0,
+    })
     fireEvent.keyDown(window, { key: 'Enter' })
 
     expect(commands[2].execute).toHaveBeenCalledOnce()

@@ -2,6 +2,10 @@ import { useRef, useEffect, type ComponentType, type MouseEvent, type PointerEve
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { scrollSelectedHTMLChildIntoView } from '../utils/domScroll'
+import {
+  detectIntentionalMouseMovement,
+  type MouseMovementSnapshot,
+} from '../utils/mouseMovement'
 import { NoteTitleIcon } from './NoteTitleIcon'
 import { WorkspaceInitialsBadge } from './WorkspaceInitialsBadge'
 import type { WorkspaceIdentity } from '../types'
@@ -32,7 +36,7 @@ interface NoteSearchListItemProps<T extends NoteSearchResultItem> {
   index: number
   selected: boolean
   onItemClick: (item: T, index: number) => void
-  onItemHover?: (index: number) => void
+  onItemHover?: (index: number, event: MouseEvent<HTMLButtonElement>) => void
   activateOnMouseDown?: boolean
 }
 
@@ -105,7 +109,7 @@ function NoteSearchListItem<T extends NoteSearchResultItem>({
         onPointerDownCapture={activateFromPress}
         onMouseDownCapture={activateFromPress}
         onClick={handleClick}
-        onMouseMove={() => onItemHover?.(index)}
+        onMouseMove={(event) => onItemHover?.(index, event)}
       >
         <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm text-foreground">
           {item.TypeIcon && (
@@ -149,6 +153,13 @@ export function NoteSearchList<T extends NoteSearchResultItem>({
   className,
 }: NoteSearchListProps<T>) {
   const listRef = useRef<HTMLDivElement>(null)
+  const mouseMovementRef = useRef<MouseMovementSnapshot | null>(null)
+
+  const handleItemHover = (index: number, event: MouseEvent<HTMLButtonElement>) => {
+    const decision = detectIntentionalMouseMovement(event.nativeEvent, mouseMovementRef.current)
+    mouseMovementRef.current = decision.snapshot
+    if (decision.moved) onItemHover?.(index)
+  }
 
   useEffect(() => {
     scrollSelectedHTMLChildIntoView(listRef.current, selectedIndex)
@@ -173,7 +184,7 @@ export function NoteSearchList<T extends NoteSearchResultItem>({
           index={i}
           selected={i === selectedIndex}
           onItemClick={onItemClick}
-          onItemHover={onItemHover}
+          onItemHover={handleItemHover}
           activateOnMouseDown={activateOnMouseDown}
         />
       ))}
