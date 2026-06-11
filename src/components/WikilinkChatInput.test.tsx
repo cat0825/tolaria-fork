@@ -365,6 +365,45 @@ describe('WikilinkChatInput', () => {
     expect(screen.getByTestId('agent-input').textContent).toBe('안녕')
   })
 
+  it('lets Korean composition commit text reach the native input pipeline', async () => {
+    const onDraftChange = vi.fn()
+    render(<Controlled onDraftChange={onDraftChange} />)
+
+    const editor = screen.getByTestId('agent-input') as HTMLDivElement
+    editor.focus()
+
+    fireEvent.compositionStart(editor)
+    editor.textContent = '안녕하세'
+    setSelection(editor, '안녕하세'.length)
+    fireEvent.input(editor)
+    fireEvent.compositionEnd(editor)
+
+    const commitEvent = new Event('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+    })
+    Object.defineProperties(commitEvent, {
+      data: { value: '요' },
+      inputType: { value: 'insertText' },
+      isComposing: { value: false },
+    })
+
+    fireEvent(editor, commitEvent)
+
+    expect(commitEvent.defaultPrevented).toBe(false)
+    expect(onDraftChange).not.toHaveBeenCalled()
+
+    editor.textContent = '안녕하세요'
+    setSelection(editor, '안녕하세요'.length)
+    fireEvent.input(editor)
+    await waitForCompositionFlush()
+
+    await waitFor(() => {
+      expect(onDraftChange).toHaveBeenLastCalledWith('안녕하세요')
+    })
+    expect(screen.getByTestId('agent-input').textContent).toBe('안녕하세요')
+  })
+
   it('does not steal focus back if it was moved elsewhere during composition end', async () => {
     const onDraftChange = vi.fn()
     render(
@@ -538,6 +577,27 @@ describe('WikilinkChatInput', () => {
 
     expect(onDraftChange).toHaveBeenLastCalledWith('first line\n\n')
     expect(screen.getByTestId('agent-input').textContent).toBe('first line\n\n')
+  })
+
+  it('keeps a long draft anchored when Ctrl+Enter inserts a line break', () => {
+    const onDraftChange = vi.fn()
+    const onSend = vi.fn()
+    render(<Controlled onDraftChange={onDraftChange} onSend={onSend} />)
+
+    const longDraft = Array.from({ length: 24 }, (_, index) => `line ${index + 1}`).join('\n')
+    updateEditorText(longDraft)
+    const editor = screen.getByTestId('agent-input') as HTMLDivElement
+    editor.scrollTop = 72
+    onDraftChange.mockClear()
+
+    fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true })
+
+    const remountedEditor = screen.getByTestId('agent-input') as HTMLDivElement
+    expect(onSend).not.toHaveBeenCalled()
+    expect(onDraftChange).toHaveBeenLastCalledWith(`${longDraft}\n`)
+    expect(remountedEditor).not.toBe(editor)
+    expect(remountedEditor.scrollTop).toBe(72)
+    expect(remountedEditor).toHaveFocus()
   })
 
   it('inserts one controlled newline from native insertLineBreak beforeinput', () => {

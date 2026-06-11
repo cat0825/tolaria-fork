@@ -3,9 +3,34 @@ import { describe, expect, it, vi } from 'vitest'
 import { APP_COMMAND_IDS, getAppCommandShortcutDisplay } from '../hooks/appCommandCatalog'
 import { makeEntry, mockEntries, renderNoteList } from '../test-utils/noteListTestUtils'
 
-function setViewport(width: number, height: number) {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
+function setViewportSize(width: number, height: number) {
+  Object.defineProperty(window, 'innerWidth', { value: width, configurable: true })
+  Object.defineProperty(window, 'innerHeight', { value: height, configurable: true })
+}
+
+function renderNoteListWithFullActionMenu() {
+  renderNoteList({
+    canCopyGitUrl: vi.fn(() => true),
+    onBulkArchive: vi.fn(),
+    onBulkDeletePermanently: vi.fn(),
+    onCopyFilePath: vi.fn(),
+    onCopyGitUrl: vi.fn(),
+    onEnterNeighborhood: vi.fn(),
+    onExportPdf: vi.fn(),
+    onOpenInNewWindow: vi.fn(),
+    onRevealFile: vi.fn(),
+    onToggleFavorite: vi.fn(),
+    onToggleOrganized: vi.fn(),
+  })
+}
+
+function openBuildLaputaActions() {
+  fireEvent.contextMenu(screen.getByText('Build Laputa App'))
+}
+
+function clickBuildLaputaAction(label: string) {
+  openBuildLaputaActions()
+  fireEvent.click(screen.getByText(label))
 }
 
 describe('NoteList context menu', () => {
@@ -36,7 +61,7 @@ describe('NoteList context menu', () => {
       onCopyGitUrl,
     })
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
+    openBuildLaputaActions()
 
     expect(screen.getByTestId('note-list-context-menu')).toBeInTheDocument()
     expect(screen.getByTestId('note-list-context-menu')).toHaveClass('z-[12000]')
@@ -48,41 +73,32 @@ describe('NoteList context menu', () => {
     fireEvent.click(screen.getByText('Open in New Window'))
     expect(onOpenInNewWindow).toHaveBeenCalledWith(mockEntries[0])
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
-    fireEvent.click(screen.getByText('Add to Favorites'))
+    clickBuildLaputaAction('Add to Favorites')
     expect(onToggleFavorite).toHaveBeenCalledWith(mockEntries[0].path)
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
-    fireEvent.click(screen.getByText('Mark as Organized'))
+    clickBuildLaputaAction('Mark as Organized')
     expect(onToggleOrganized).toHaveBeenCalledWith(mockEntries[0].path)
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
-    fireEvent.click(screen.getByText("Open note's neighborhood"))
+    clickBuildLaputaAction("Open note's neighborhood")
     expect(onEnterNeighborhood).toHaveBeenCalledWith(mockEntries[0])
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
-    fireEvent.click(screen.getByText('Reveal in Finder'))
+    clickBuildLaputaAction('Reveal in Finder')
     expect(onRevealFile).toHaveBeenCalledWith(mockEntries[0].path)
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
-    fireEvent.click(screen.getByText('Copy file path'))
+    clickBuildLaputaAction('Copy file path')
     expect(onCopyFilePath).toHaveBeenCalledWith(mockEntries[0].path)
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
-    fireEvent.click(screen.getByText('Copy git URL'))
+    clickBuildLaputaAction('Copy git URL')
     expect(canCopyGitUrl).toHaveBeenCalledWith(mockEntries[0])
     expect(onCopyGitUrl).toHaveBeenCalledWith(mockEntries[0])
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
-    fireEvent.click(screen.getByText('Export note as PDF'))
+    clickBuildLaputaAction('Export note as PDF')
     expect(onExportPdf).toHaveBeenCalledWith(mockEntries[0])
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
-    fireEvent.click(screen.getByText('Archive this note'))
+    clickBuildLaputaAction('Archive this note')
     expect(onBulkArchive).toHaveBeenCalledWith([mockEntries[0].path])
 
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'))
-    fireEvent.click(screen.getByText('Delete this note'))
+    clickBuildLaputaAction('Delete this note')
     expect(onBulkDeletePermanently).toHaveBeenCalledWith([mockEntries[0].path])
   })
 
@@ -106,23 +122,6 @@ describe('NoteList context menu', () => {
     expect(screen.getByText('Mark as Unorganized')).toBeInTheDocument()
   })
 
-  it('positions the note context menu inside the viewport and allows oversized menus to scroll', () => {
-    setViewport(800, 600)
-    renderNoteList({ onOpenInNewWindow: vi.fn() })
-
-    fireEvent.contextMenu(screen.getByText('Build Laputa App'), {
-      clientX: 790,
-      clientY: 40,
-    })
-
-    const menu = screen.getByTestId('note-list-context-menu')
-    expect(menu).toHaveStyle({
-      left: '552px',
-      maxHeight: 'calc(100vh - 16px)',
-      overflowY: 'auto',
-    })
-  })
-
   it('hides the git URL action for notes without a remote', () => {
     renderNoteList({
       canCopyGitUrl: () => false,
@@ -133,5 +132,55 @@ describe('NoteList context menu', () => {
     fireEvent.contextMenu(screen.getByText('Build Laputa App'))
 
     expect(screen.queryByText('Copy git URL')).not.toBeInTheDocument()
+  })
+
+  it('keeps note actions visible when opened near the bottom-right viewport edge', () => {
+    setViewportSize(1024, 768)
+    renderNoteList({
+      onOpenInNewWindow: vi.fn(),
+      onBulkDeletePermanently: vi.fn(),
+    })
+
+    fireEvent.contextMenu(screen.getByText('Build Laputa App'), { clientX: 1000, clientY: 740 })
+
+    const menu = screen.getByTestId('note-list-context-menu')
+    expect(menu.style.left).toBe('')
+    expect(menu.style.top).toBe('')
+    expect(menu).toHaveStyle({
+      bottom: '28px',
+      maxHeight: '732px',
+      right: '24px',
+    })
+  })
+
+  it('keeps note actions visible when opened near the right viewport edge', () => {
+    setViewportSize(800, 600)
+    renderNoteList({ onOpenInNewWindow: vi.fn() })
+
+    fireEvent.contextMenu(screen.getByText('Build Laputa App'), { clientX: 790, clientY: 40 })
+
+    const menu = screen.getByTestId('note-list-context-menu')
+    expect(menu.style.left).toBe('')
+    expect(menu).toHaveStyle({
+      maxHeight: '552px',
+      overflowY: 'auto',
+      right: '10px',
+      top: '40px',
+    })
+  })
+
+  it('caps note actions to the available viewport space from a mid-height right-click', () => {
+    setViewportSize(420, 320)
+    renderNoteListWithFullActionMenu()
+
+    fireEvent.contextMenu(screen.getByText('Build Laputa App'), { clientX: 271, clientY: 157 })
+
+    const menu = screen.getByTestId('note-list-context-menu')
+    expect(menu).toHaveStyle({
+      maxHeight: '155px',
+      overflowY: 'auto',
+      right: '149px',
+      top: '157px',
+    })
   })
 })

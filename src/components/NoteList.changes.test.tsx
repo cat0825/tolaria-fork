@@ -6,11 +6,6 @@ import { allSelection, mockEntries, renderNoteList } from '../test-utils/noteLis
 
 const changesSelection: SidebarSelection = { kind: 'filter', filter: 'changes' }
 
-function setViewport(width: number, height: number) {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
-}
-
 function changeFile(
   entry: VaultEntry,
   status: ModifiedFile['status'],
@@ -28,6 +23,11 @@ const modifiedFiles = [
   changeFile(mockEntries[0], 'modified', { addedLines: 42, deletedLines: 7 }),
   changeFile(mockEntries[1], 'modified', { addedLines: 5, deletedLines: 2 }),
 ]
+
+function setViewportSize(width: number, height: number) {
+  Object.defineProperty(window, 'innerWidth', { value: width, configurable: true })
+  Object.defineProperty(window, 'innerHeight', { value: height, configurable: true })
+}
 
 describe('NoteList changes view', () => {
   it('shows only modified notes in changes view with note titles and filenames', () => {
@@ -190,6 +190,23 @@ describe('NoteList changes view', () => {
     expect(screen.getByTestId('discard-changes-button')).toBeInTheDocument()
   })
 
+  it('keeps the discard menu visible near the bottom-right viewport edge', () => {
+    setViewportSize(320, 180)
+    renderNoteList({ selection: changesSelection, modifiedFiles, onDiscardFile: vi.fn() })
+    const noteItem = screen.getByText('Build Laputa App').closest('[class*="border-b"]')!
+
+    fireEvent.contextMenu(noteItem, { clientX: 312, clientY: 176 })
+
+    const menu = screen.getByTestId('changes-context-menu')
+    expect(menu.style.left).toBe('')
+    expect(menu.style.top).toBe('')
+    expect(menu).toHaveStyle({
+      bottom: '8px',
+      maxHeight: '164px',
+      right: '8px',
+    })
+  })
+
   it('shows the restore action for deleted rows in the context menu', () => {
     renderNoteList({
       selection: changesSelection,
@@ -204,24 +221,6 @@ describe('NoteList changes view', () => {
 
     expect(screen.getByTestId('changes-context-menu')).toBeInTheDocument()
     expect(screen.getByTestId('restore-note-button')).toBeInTheDocument()
-  })
-
-  it('positions the changes context menu inside the viewport and allows oversized menus to scroll', () => {
-    setViewport(800, 600)
-    renderNoteList({ selection: changesSelection, modifiedFiles, onDiscardFile: vi.fn() })
-    const noteItem = screen.getByText('Build Laputa App').closest('[class*="border-b"]')!
-
-    fireEvent.contextMenu(noteItem, {
-      clientX: 790,
-      clientY: 40,
-    })
-
-    const menu = screen.getByTestId('changes-context-menu')
-    expect(menu).toHaveStyle({
-      left: '612px',
-      maxHeight: 'calc(100vh - 16px)',
-      overflowY: 'auto',
-    })
   })
 
   it('does not show a context menu when discard is unavailable', () => {
