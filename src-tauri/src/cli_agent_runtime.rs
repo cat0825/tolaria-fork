@@ -30,7 +30,7 @@ pub(crate) struct JsonLineRun {
 
 pub(crate) struct AgentCommandTarget {
     pub program: PathBuf,
-    pub first_arg: Option<PathBuf>,
+    pub prefix_args: Vec<OsString>,
 }
 
 pub(crate) struct JsonLineProcess<'a> {
@@ -96,9 +96,7 @@ pub(crate) fn version_for_binary(binary: &Path) -> Option<String> {
     let target = command_target_avoiding_windows_cmd_shim(binary).ok()?;
     let mut command = crate::hidden_command(&target.program);
     configure_agent_command_environment(&mut command, binary);
-    if let Some(first_arg) = target.first_arg {
-        command.arg(first_arg);
-    }
+    command.args(&target.prefix_args);
     command
         .arg("--version")
         .output()
@@ -116,7 +114,7 @@ pub(crate) fn command_target_avoiding_windows_cmd_shim(
 
     Ok(AgentCommandTarget {
         program: binary.to_path_buf(),
-        first_arg: None,
+        prefix_args: Vec::new(),
     })
 }
 
